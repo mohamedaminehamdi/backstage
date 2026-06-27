@@ -133,12 +133,29 @@ export class DocsSynchronizer {
         cache: this.cache,
       });
 
+      const BUILD_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
       const interval = setInterval(() => {
         taskLogger.info(
           'The docs building process is taking a little bit longer to process this entity. Please bear with us.',
         );
       }, 10000);
-      const updated = await this.buildLimiter(() => docsBuilder.build());
+      const updated = await this.buildLimiter(() =>
+        Promise.race([
+          docsBuilder.build(),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    'TechDocs build timed out after 10 minutes. The docs source may be unreachable or the build process is hanging.',
+                  ),
+                ),
+              BUILD_TIMEOUT_MS,
+            ),
+          ),
+        ]),
+      );
       clearInterval(interval);
 
       if (!updated) {
