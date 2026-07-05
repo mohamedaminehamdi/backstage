@@ -150,12 +150,17 @@ export class DocsSynchronizer {
               () =>
                 reject(
                   new Error(
-                    'TechDocs build timed out after 10 minutes. The docs source may be unreachable or the build process is hanging.',
+                    `TechDocs build timed out after ${
+                      BUILD_TIMEOUT_MS / 60_000
+                    } minutes. The docs source may be unreachable or the build process is hanging.`,
                   ),
                 ),
               BUILD_TIMEOUT_MS,
             );
           });
+          // docsBuilder.build() does not accept an AbortSignal, so the underlying
+          // process continues running after a timeout. Full cancellation would require
+          // propagating a signal through the generator and preparer stages in techdocs-node.
           return Promise.race([docsBuilder.build(), timeoutPromise]).finally(
             () => clearTimeout(timeoutId),
           );
