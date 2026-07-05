@@ -140,11 +140,13 @@ export class DocsSynchronizer {
           'The docs building process is taking a little bit longer to process this entity. Please bear with us.',
         );
       }, 10000);
-      const updated = await this.buildLimiter(() =>
-        Promise.race([
-          docsBuilder.build(),
-          new Promise<never>((_, reject) =>
-            setTimeout(
+
+      let updated = false;
+      try {
+        updated = await this.buildLimiter(() => {
+          let timeoutId: ReturnType<typeof setTimeout> | undefined;
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(
               () =>
                 reject(
                   new Error(
@@ -152,11 +154,15 @@ export class DocsSynchronizer {
                   ),
                 ),
               BUILD_TIMEOUT_MS,
-            ),
-          ),
-        ]),
-      );
-      clearInterval(interval);
+            );
+          });
+          return Promise.race([docsBuilder.build(), timeoutPromise]).finally(
+            () => clearTimeout(timeoutId),
+          );
+        });
+      } finally {
+        clearInterval(interval);
+      }
 
       if (!updated) {
         finish({ updated: false });
