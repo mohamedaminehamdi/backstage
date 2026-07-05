@@ -141,32 +141,36 @@ export class DocsSynchronizer {
         );
       }, 10000);
 
+      // The timeout races outside the limiter so the limiter slot is held until
+      // docsBuilder.build() actually finishes, preserving the concurrency cap even
+      // when a timeout fires. docsBuilder.build() does not accept an AbortSignal,
+      // so the underlying process continues running after a timeout; full cancellation
+      // would require propagating a signal through the generator and preparer stages
+      // in techdocs-node.
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `TechDocs build timed out after ${
+                  BUILD_TIMEOUT_MS / 60_000
+                } minutes. The docs source may be unreachable or the build process is hanging.`,
+              ),
+            ),
+          BUILD_TIMEOUT_MS,
+        );
+      });
+
       let updated = false;
       try {
-        updated = await this.buildLimiter(() => {
-          let timeoutId: ReturnType<typeof setTimeout> | undefined;
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            timeoutId = setTimeout(
-              () =>
-                reject(
-                  new Error(
-                    `TechDocs build timed out after ${
-                      BUILD_TIMEOUT_MS / 60_000
-                    } minutes. The docs source may be unreachable or the build process is hanging.`,
-                  ),
-                ),
-              BUILD_TIMEOUT_MS,
-            );
-          });
-          // docsBuilder.build() does not accept an AbortSignal, so the underlying
-          // process continues running after a timeout. Full cancellation would require
-          // propagating a signal through the generator and preparer stages in techdocs-node.
-          return Promise.race([docsBuilder.build(), timeoutPromise]).finally(
-            () => clearTimeout(timeoutId),
-          );
-        });
+        updated = await Promise.race([
+          this.buildLimiter(() => docsBuilder.build()),
+          timeoutPromise,
+        ]);
       } finally {
         clearInterval(interval);
+        clearTimeout(timeoutId);
       }
 
       if (!updated) {
