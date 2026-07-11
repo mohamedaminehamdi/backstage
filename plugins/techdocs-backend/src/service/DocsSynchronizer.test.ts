@@ -102,7 +102,6 @@ describe('DocsSynchronizer', () => {
 
   afterEach(() => {
     jest.resetAllMocks();
-    jest.clearAllTimers();
   });
 
   describe('doSync', () => {
@@ -261,48 +260,6 @@ describe('DocsSynchronizer', () => {
       expect(mockResponseHandler.finish).toHaveBeenCalledTimes(0);
       expect(mockResponseHandler.error).toHaveBeenCalledTimes(1);
       expect(mockResponseHandler.error).toHaveBeenCalledWith(error);
-    });
-
-    it('should surface an error when the build exceeds the timeout', async () => {
-      (shouldCheckForUpdate as jest.Mock).mockReturnValue(true);
-
-      const entity = {
-        apiVersion: 'backstage.io/v1alpha1',
-        kind: 'Component',
-        metadata: {
-          uid: '0',
-          name: 'test',
-          namespace: 'default',
-        },
-      };
-
-      MockedDocsBuilder.prototype.build.mockImplementation(
-        () => new Promise(() => {}), // never resolves — simulates a hanging build
-      );
-
-      const syncPromise = docsSynchronizer.doSync({
-        responseHandler: mockResponseHandler,
-        entity,
-        preparers,
-        generators,
-      });
-
-      // Yield to allow the async doSync body to run and register the build
-      // timeout setTimeout before we advance fake timers.
-      await Promise.resolve();
-
-      // Advance past the 10-minute build timeout
-      jest.advanceTimersByTime(10 * 60 * 1000 + 1);
-
-      await syncPromise;
-
-      expect(mockResponseHandler.error).toHaveBeenCalledTimes(1);
-      expect(mockResponseHandler.error).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: expect.stringContaining('timed out'),
-        }),
-      );
-      expect(mockResponseHandler.finish).toHaveBeenCalledTimes(0);
     });
   });
 

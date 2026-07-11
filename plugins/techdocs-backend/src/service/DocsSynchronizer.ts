@@ -133,45 +133,13 @@ export class DocsSynchronizer {
         cache: this.cache,
       });
 
-      const BUILD_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
-
       const interval = setInterval(() => {
         taskLogger.info(
           'The docs building process is taking a little bit longer to process this entity. Please bear with us.',
         );
       }, 10000);
-
-      // The timeout races outside the limiter so the limiter slot is held until
-      // docsBuilder.build() actually finishes, preserving the concurrency cap even
-      // when a timeout fires. docsBuilder.build() does not accept an AbortSignal,
-      // so the underlying process continues running after a timeout; full cancellation
-      // would require propagating a signal through the generator and preparer stages
-      // in techdocs-node.
-      let timeoutId: ReturnType<typeof setTimeout> | undefined;
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(
-          () =>
-            reject(
-              new Error(
-                `TechDocs build timed out after ${
-                  BUILD_TIMEOUT_MS / 60_000
-                } minutes. The docs source may be unreachable or the build process is hanging.`,
-              ),
-            ),
-          BUILD_TIMEOUT_MS,
-        );
-      });
-
-      let updated = false;
-      try {
-        updated = await Promise.race([
-          this.buildLimiter(() => docsBuilder.build()),
-          timeoutPromise,
-        ]);
-      } finally {
-        clearInterval(interval);
-        clearTimeout(timeoutId);
-      }
+      const updated = await this.buildLimiter(() => docsBuilder.build());
+      clearInterval(interval);
 
       if (!updated) {
         finish({ updated: false });
