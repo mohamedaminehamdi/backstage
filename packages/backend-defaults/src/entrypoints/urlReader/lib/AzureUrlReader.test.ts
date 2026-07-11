@@ -296,18 +296,21 @@ describe('AzureUrlReader', () => {
       const controller = new AbortController();
       const fetchSpy = jest.spyOn(global, 'fetch');
 
-      await processor.readTree(
-        'https://dev.azure.com/organization/project/_git/repository',
-        { signal: controller.signal },
-      );
+      try {
+        await processor.readTree(
+          'https://dev.azure.com/organization/project/_git/repository',
+          { signal: controller.signal },
+        );
 
-      const commitsCall = fetchSpy.mock.calls.find(([url]) =>
-        String(url).includes('/commits'),
-      );
-      expect(commitsCall?.[1]).toEqual(
-        expect.objectContaining({ signal: controller.signal }),
-      );
-      fetchSpy.mockRestore();
+        const commitsCall = fetchSpy.mock.calls.find(([url]) =>
+          String(url).includes('/commits'),
+        );
+        expect(commitsCall?.[1]).toEqual(
+          expect.objectContaining({ signal: controller.signal }),
+        );
+      } finally {
+        fetchSpy.mockRestore();
+      }
     });
   });
 
