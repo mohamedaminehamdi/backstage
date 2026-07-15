@@ -7,11 +7,8 @@
 # yarn tsc
 # yarn build:backend
 #
-# These commands must be run with Node 24, matching this image's runtime.
-# Using a different Node version can cause native modules (e.g. better-sqlite3,
-# cpu-features) to be compiled against a different ABI, resulting in silent
-# failures or hangs at runtime — especially if Yarn's build cache is shared
-# across Node versions via a BuildKit --mount=type=cache.
+# Host build steps (yarn install, yarn build:backend) must use the same
+# Node version as the FROM image below. Mismatched versions break native modules.
 #
 # Once the commands have been run, you can build the image using `yarn build-image`
 #
