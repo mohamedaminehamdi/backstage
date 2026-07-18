@@ -38,7 +38,7 @@ The required steps in the host build are to install dependencies with
 package with `yarn build:backend`.
 
 :::note
-Run these commands with the same Node version as the Docker base image (currently Node 24). Using a different version will cause native modules to fail at runtime.
+Run these commands with the same Node version as the Docker base image. Using a different version will cause native modules to fail at runtime.
 :::
 
 In a CI workflow it might look something like this, from the root:
